@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비타밍 시그 아카이브</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --primary: #5c6ac4;
+            --primary-hover: #434ce6;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-sub: #718096;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 30px 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            color: var(--primary);
+        }
+
+        /* 입력 폼 섹션 */
+        .form-section {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+
+        .form-section h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-save {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            margin-top: 5px;
+        }
+
+        .btn-save:hover { background-color: var(--primary-hover); }
+
+        /* 검색 및 리스트 섹션 */
+        .search-box {
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23a0aec0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>') no-repeat 15px center;
+            background-color: var(--card-bg);
+            padding-left: 45px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .sig-item {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            border: 1px solid var(--border);
+        }
+
+        .sig-info h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.1rem;
+        }
+
+        .sig-info p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-copy-img { background-color: #ed8936; color: white; }
+        .btn-copy-img:hover { background-color: #dd6b20; }
+        
+        .btn-copy-audio { background-color: #48bb78; color: white; }
+        .btn-copy-audio:hover { background-color: #38a169; }
+
+        .btn-edit { background-color: #4a5568; color: white; padding: 12px 15px; }
+        .btn-edit:hover { background-color: #2d3748; }
+
+        .btn-delete { background-color: #fc8181; color: white; padding: 12px 15px; }
+        .btn-delete:hover { background-color: #e53e3e; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-sub);
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+        }
+
+        @media (max-width: 600px) {
+            .sig-item { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .action-buttons { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+            .input-group { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>비타밍 시그 아카이브</h1>
+
+        <div class="form-section">
+            <h2>새로운 시그 등록</h2>
+            <div class="input-group">
+                <input type="text" id="sigName" placeholder="시그 이름 (예: 츠캄 엔딩곡 Brasma Remix)">
+                <input type="password" id="managerPwd" placeholder="비밀번호 입력">
+            </div>
+            <div class="input-group">
+                <input type="text" id="imgUrl" placeholder="이미지 URL 입력">
+                <input type="text" id="audioUrl" placeholder="음원 URL 입력">
+            </div>
+            <button class="btn-save" onclick="addSig()">저장하기</button>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="저장된 시그 이름을 검색하세요..." onkeyup="filterSigs()">
+        </div>
+
+        <div id="sigList"></div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDBsueJKgrDL4FzXw6NtHNGTo82R7wdQ8M",
+            authDomain: "tm-sig-archive.firebaseapp.com",
+            databaseURL: "https://tm-sig-archive-default-rtdb.firebaseio.com", 
+            projectId: "tm-sig-archive",
+            storageBucket: "tm-sig-archive.firebasestorage.app",
+            messagingSenderId: "1042712780703",
+            appId: "1:1042712780703:web:1ae0693986de1bbbd427aa"
+        };
+
+        // 비밀번호 설정 (원하는 비밀번호로 바꾸세요)
+        const MASTER_PASSWORD = "132456"; 
+
+        // Firebase 초기화 및 DB 연결
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        let sigData = [];
+
+        // 데이터베이스에서 실시간으로 시그 데이터 불러오기
+        database.ref('sigs').on('value', (snapshot) => {
+            const data = snapshot.val();
+            
+            if (data) {
+                // Firebase 객체 데이터를 배열로 변환
+                sigData = Object.values(data);
+            } else {
+                // 데이터베이스가 완전히 비어있을 때만 초기 샘플 데이터 1개 강제 세팅 및 DB 저장
+                sigData = [{ 
+                    id: 1, 
+                    name: "츠캄 엔딩곡 Brasma Remix", 
+                    imgUrl: "https://www.image2url.com/r2/default/images/1780937978100-38b1a19f-58bc-4bfc-b58d-977d7ce941c7.png", 
+                    audioUrl: "https://www.image2url.com/r2/default/audio/1780937846881-ca4a6c0b-64e1-45a4-beec-685956aac677.mp3" 
+                }];
+                database.ref('sigs/' + sigData[0].id).set(sigData[0]);
+            }
+            
+            // 데이터가 바뀔 때마다 화면 갱신
+            filterSigs();
+        });
+
+        // 목록 화면에 그리기
+        function renderSigs(filteredList) {
+            const listContainer = document.getElementById('sigList');
+            listContainer.innerHTML = "";
+
+            if (!filteredList || filteredList.length === 0) {
+                listContainer.innerHTML = `<div class="empty-state">검색된 시그가 없거나 아직 등록되지 않았습니다.</div>`;
+                return;
+            }
+
+            // 최신 등록 순으로 정렬하여 출력
+            [...filteredList].reverse().forEach(sig => {
+                const item = document.createElement('div');
+                item.className = 'sig-item';
+                item.innerHTML = `
+                    <div class="sig-info">
+                        <h3>${sig.name}</h3>
+                        <p>IMG: ${sig.imgUrl || '없음'}</p>
+                        <p>MP3: ${sig.audioUrl || '없음'}</p>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">🖼️ 이미지 URL 복사</button>
+                        <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">🎵 음원 URL 복사</button>
+                        <button class="btn-edit" onclick="updateSigName(${sig.id}, '${sig.name.replace(/'/g, "\\'")}')">✏️ 이름 수정</button>
+                        <button class="btn-delete" onclick="deleteSig(${sig.id})">삭제</button>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        // 새로운 시그 추가
+        function addSig() {
+            const nameInput = document.getElementById('sigName').value.trim();
+            const imgInput = document.getElementById('imgUrl').value.trim();
+            const audioInput = document.getElementById('audioUrl').value.trim();
+            const pwdInput = document.getElementById('managerPwd').value.trim();
+
+            if (!nameInput) {
+                alert("시그 이름을 입력해주세요!");
+                return;
+            }
+            if (!pwdInput || pwdInput !== MASTER_PASSWORD) {
+                alert("비밀번호가 틀렸거나 입력되지 않았습니다. 스트리머 혹은 매니저만 등록 가능합니다.");
+                return;
+            }
+
+            const newSig = {
+                id: Date.now(),
+                name: nameInput,
+                imgUrl: imgInput,
+                audioUrl: audioInput
+            };
+
+            // Firebase 데이터베이스에 실시간 저장
+            database.ref('sigs/' + newSig.id).set(newSig).then(() => {
+                // 입력창 초기화
+                document.getElementById('sigName').value = "";
+                document.getElementById('imgUrl').value = "";
+                document.getElementById('audioUrl').value = "";
+                document.getElementById('managerPwd').value = "";
+                document.getElementById('searchInput').value = "";
+                alert("새로운 시그가 성공적으로 공유 저장되었습니다!");
+            }).catch(err => {
+                alert("저장 실패: " + err.message);
+            });
+        }
+
+        // 시그 이름 수정 기능
+        function updateSigName(id, currentName) {
+            const pwd = prompt("시그 이름을 수정하려면 비밀번호를 입력하세요:");
+            if (pwd === null) return; // 취소 클릭시
+            
+            if (!pwd || pwd.trim() !== MASTER_PASSWORD) {
+                alert("비밀번호가 일치하지 않아 수정할 수 없습니다.");
+                return;
+            }
+
+            const newName = prompt("변경할 새로운 시그 이름을 입력해주세요:", currentName);
+            if (newName === null) return; // 취소 클릭시
+            
+            const trimmedName = newName.trim();
+            if (!trimmedName) {
+                alert("시그 이름은 공백으로 설정할 수 없습니다.");
+                return;
+            }
+
+            // 파이어베이스에서 해당 id의 name 필드만 업데이트
+            database.ref('sigs/' + id).update({ name: trimmedName }).then(() => {
+                alert("시그 이름이 성공적으로 수정되었습니다.");
+            }).catch(err => {
+                alert("수정 실패: " + err.message);
+            });
+        }
+
+        // 시그 삭제
+        function deleteSig(id) {
+            const pwd = prompt("시그를 삭제하려면 비밀번호를 입력하세요:");
+            
+            if (pwd === null) return; // 취소 클릭시
+            
+            if (!pwd || pwd.trim() !== MASTER_PASSWORD) {
+                alert("비밀번호가 일치하지 않아 삭제할 수 없습니다.");
+                return;
+            }
+
+            if (confirm("정말 이 시그를 삭제하시겠습니까? 다른 사람들의 화면에서도 삭제됩니다.")) {
+                // Firebase에서 해당 id 데이터 삭제
+                database.ref('sigs/' + id).remove().then(() => {
+                    alert("삭제되었습니다.");
+                });
+            }
+        }
+
+        // 클립보드 복사 기능
+        function copyToClipboard(text, type) {
+            if (!text || text === 'undefined' || text === '없음') {
+                alert(`등록된 ${type} URL이 없습니다.`);
+                return;
+            }
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert(`${type} URL이 복사되었습니다!\n${text}`);
+            }).catch(err => {
+                alert("복사에 실패했습니다.");
+            });
+        }
+
+        // 검색 필터 작동 함수
+        function filterSigs() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = sigData.filter(sig => 
+                sig.name.toLowerCase().includes(query)
+            );
+            renderSigs(filtered);
+        }
+    </script>
+</body>
+</html>
