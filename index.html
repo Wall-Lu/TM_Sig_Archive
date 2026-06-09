@@ -257,8 +257,8 @@
                         <p>MP3: ${sig.audioUrl || '없음'}</p>
                     </div>
                     <div class="action-buttons">
-                        <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">🖼️ 이미지 URL 복사</button>
-                        <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">🎵 음원 URL 복사</button>
+                        <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">이미지 URL 복사</button>
+                        <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">음원 URL 복사</button>
                         <button class="btn-edit" onclick="updateSigName(${sig.id}, '${sig.name.replace(/'/g, "\\'")}')">이름 수정</button>
                         <button class="btn-delete" onclick="deleteSig(${sig.id})">삭제</button>
                     </div>
