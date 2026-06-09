@@ -16,6 +16,8 @@
             --text-main: #2d3748;
             --text-sub: #718096;
             --border: #e2e8f0;
+            --danger: #fc8181;
+            --danger-hover: #e53e3e;
         }
 
         body {
@@ -36,17 +38,56 @@
         h1 {
             text-align: center;
             font-size: 1.8rem;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             color: var(--primary);
         }
 
-        /* 입력 폼 섹션 */
+        /* 로그인 바 섹션 */
+        .login-bar {
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .login-status {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .login-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .login-form input {
+            width: 160px;
+            padding: 8px 12px;
+        }
+
+        .btn-login { background-color: var(--primary); color: white; padding: 8px 15px; }
+        .btn-login:hover { background-color: var(--primary-hover); }
+        .btn-logout { background-color: var(--danger); color: white; padding: 8px 15px; }
+        .btn-logout:hover { background-color: var(--danger-hover); }
+
+        /* 입력 폼 섹션 (기본적으로 숨김, 로그인 시 표시) */
         .form-section {
             background: var(--card-bg);
             padding: 25px;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             margin-bottom: 30px;
+            display: none; 
+        }
+
+        .form-section.active {
+            display: block;
         }
 
         .form-section h2 {
@@ -147,11 +188,15 @@
         .btn-copy-audio { background-color: #48bb78; color: white; }
         .btn-copy-audio:hover { background-color: #38a169; }
 
+        /* 관리자 전용 버튼은 기본적으로 숨김 처리 */
+        .admin-btn { display: none; }
+        .admin-mode .admin-btn { display: inline-block; }
+
         .btn-edit { background-color: #4a5568; color: white; padding: 12px 15px; }
         .btn-edit:hover { background-color: #2d3748; }
 
-        .btn-delete { background-color: #fc8181; color: white; padding: 12px 15px; }
-        .btn-delete:hover { background-color: #e53e3e; }
+        .btn-delete { background-color: var(--danger); color: white; padding: 12px 15px; }
+        .btn-delete:hover { background-color: var(--danger-hover); }
 
         .empty-state {
             text-align: center;
@@ -166,19 +211,29 @@
             .sig-item { flex-direction: column; align-items: flex-start; gap: 15px; }
             .action-buttons { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
             .input-group { flex-direction: column; }
+            .login-bar { flex-direction: column; align-items: flex-start; }
+            .login-form { width: 100%; }
+            .login-form input { width: 100%; }
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="container" id="mainContainer">
         <h1>비타밍 시그 아카이브</h1>
 
-        <div class="form-section">
+        <div class="login-bar">
+            <div class="login-status" id="loginStatus">일반 모드 (조회 및 복사만 가능)</div>
+            <div class="login-form" id="loginFormArea">
+                <input type="password" id="loginPwd" placeholder="매니저 비밀번호">
+                <button class="btn-login" onclick="checkLogin()">로그인</button>
+            </div>
+        </div>
+
+        <div class="form-section" id="adminForm">
             <h2>새로운 시그 등록</h2>
             <div class="input-group">
                 <input type="text" id="sigName" placeholder="시그 이름 (예: 츠캄 엔딩곡 Brasma Remix)">
-                <input type="password" id="managerPwd" placeholder="비밀번호 입력">
             </div>
             <div class="input-group">
                 <input type="text" id="imgUrl" placeholder="이미지 URL 입력">
@@ -205,24 +260,72 @@
             appId: "1:1042712780703:web:1ae0693986de1bbbd427aa"
         };
 
-        // 비밀번호 설정 (원하는 비밀번호로 바꾸세요)
         const MASTER_PASSWORD = "132456"; 
 
-        // Firebase 초기화 및 DB 연결
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
         let sigData = [];
+        let isLoggedIn = false;
 
-        // 데이터베이스에서 실시간으로 시그 데이터 불러오기
+        // 페이지가 처음 켜졌을 때 자동 로그인 체크
+        window.onload = function() {
+            const savedPwd = localStorage.getItem('manager_session');
+            if (savedPwd === MASTER_PASSWORD) {
+                setLoginState(true);
+            }
+        };
+
+        // 로그인 검증 함수
+        function checkLogin() {
+            const pwdInput = document.getElementById('loginPwd').value.trim();
+            if (pwdInput === MASTER_PASSWORD) {
+                localStorage.setItem('manager_session', pwdInput);
+                setLoginState(true);
+                document.getElementById('loginPwd').value = "";
+                alert("매니저 인증에 성공했습니다!");
+            } else {
+                alert("비밀번호가 올바르지 않습니다.");
+            }
+        }
+
+        // 로그아웃 처리 함수
+        function handleLogout() {
+            localStorage.removeItem('manager_session');
+            setLoginState(false);
+            alert("로그아웃 되었습니다.");
+        }
+
+        // 로그인 여부에 따른 화면 UI 제어 변경
+        function setLoginState(isTrue) {
+            isLoggedIn = isTrue;
+            const container = document.getElementById('mainContainer');
+            const statusText = document.getElementById('loginStatus');
+            const formArea = document.getElementById('loginFormArea');
+            const adminForm = document.getElementById('adminForm');
+
+            if (isTrue) {
+                container.classList.add('admin-mode');
+                adminForm.classList.add('active');
+                statusText.innerText = "🔒 매니저 모드 활성화 중";
+                formArea.innerHTML = `<button class="btn-logout" onclick="handleLogout()">로그아웃</button>`;
+            } else {
+                container.classList.remove('admin-mode');
+                adminForm.classList.remove('active');
+                statusText.innerText = "일반 모드 (조회 및 복사만 가능)";
+                formArea.innerHTML = `
+                    <input type="password" id="loginPwd" placeholder="매니저 비밀번호">
+                    <button class="btn-login" onclick="checkLogin()">로그인</button>
+                `;
+            }
+        }
+
+        // 데이터베이스 실시간 연동
         database.ref('sigs').on('value', (snapshot) => {
             const data = snapshot.val();
-            
             if (data) {
-                // Firebase 객체 데이터를 배열로 변환
                 sigData = Object.values(data);
             } else {
-                // 데이터베이스가 완전히 비어있을 때만 초기 샘플 데이터 1개 강제 세팅 및 DB 저장
                 sigData = [{ 
                     id: 1, 
                     name: "츠캄 엔딩곡 Brasma Remix", 
@@ -231,12 +334,10 @@
                 }];
                 database.ref('sigs/' + sigData[0].id).set(sigData[0]);
             }
-            
-            // 데이터가 바뀔 때마다 화면 갱신
             filterSigs();
         });
 
-        // 목록 화면에 그리기
+        // 리스트 출력 (수정/삭제 버튼에 admin-btn 클래스 부여)
         function renderSigs(filteredList) {
             const listContainer = document.getElementById('sigList');
             listContainer.innerHTML = "";
@@ -246,7 +347,6 @@
                 return;
             }
 
-            // 최신 등록 순으로 정렬하여 출력
             [...filteredList].reverse().forEach(sig => {
                 const item = document.createElement('div');
                 item.className = 'sig-item';
@@ -257,29 +357,29 @@
                         <p>MP3: ${sig.audioUrl || '없음'}</p>
                     </div>
                     <div class="action-buttons">
-                        <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">이미지 URL 복사</button>
-                        <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">음원 URL 복사</button>
-                        <button class="btn-edit" onclick="updateSigName(${sig.id}, '${sig.name.replace(/'/g, "\\'")}')">이름 수정</button>
-                        <button class="btn-delete" onclick="deleteSig(${sig.id})">삭제</button>
+                        <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">이미지 URL</button>
+                        <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">음원 URL</button>
+                        <button class="btn-edit admin-btn" onclick="updateSigName(${sig.id}, '${sig.name.replace(/'/g, "\\'")}')">수정</button>
+                        <button class="btn-delete admin-btn" onclick="deleteSig(${sig.id})">삭제</button>
                     </div>
                 `;
                 listContainer.appendChild(item);
             });
         }
 
-        // 새로운 시그 추가
+        // 새로운 시그 추가 (상단 로그인 유무 검증)
         function addSig() {
+            if (!isLoggedIn) {
+                alert("매니저 로그인이 필요합니다.");
+                return;
+            }
+
             const nameInput = document.getElementById('sigName').value.trim();
             const imgInput = document.getElementById('imgUrl').value.trim();
             const audioInput = document.getElementById('audioUrl').value.trim();
-            const pwdInput = document.getElementById('managerPwd').value.trim();
 
             if (!nameInput) {
                 alert("시그 이름을 입력해주세요!");
-                return;
-            }
-            if (!pwdInput || pwdInput !== MASTER_PASSWORD) {
-                alert("비밀번호가 틀렸거나 입력되지 않았습니다. 스트리머 혹은 매니저만 등록 가능합니다.");
                 return;
             }
 
@@ -290,32 +390,26 @@
                 audioUrl: audioInput
             };
 
-            // Firebase 데이터베이스에 실시간 저장
             database.ref('sigs/' + newSig.id).set(newSig).then(() => {
-                // 입력창 초기화
                 document.getElementById('sigName').value = "";
                 document.getElementById('imgUrl').value = "";
                 document.getElementById('audioUrl').value = "";
-                document.getElementById('managerPwd').value = "";
                 document.getElementById('searchInput').value = "";
-                alert("새로운 시그가 성공적으로 공유 저장되었습니다!");
+                alert("새로운 시그가 공유 저장되었습니다!");
             }).catch(err => {
                 alert("저장 실패: " + err.message);
             });
         }
 
-        // 시그 이름 수정 기능
+        // 이름 수정 (로그인되어 있으면 프롬프트 패스)
         function updateSigName(id, currentName) {
-            const pwd = prompt("시그 이름을 수정하려면 비밀번호를 입력하세요:");
-            if (pwd === null) return; // 취소 클릭시
-            
-            if (!pwd || pwd.trim() !== MASTER_PASSWORD) {
-                alert("비밀번호가 일치하지 않아 수정할 수 없습니다.");
+            if (!isLoggedIn) {
+                alert("권한이 없습니다. 상단에서 로그인해 주세요.");
                 return;
             }
 
             const newName = prompt("변경할 새로운 시그 이름을 입력해주세요:", currentName);
-            if (newName === null) return; // 취소 클릭시
+            if (newName === null) return;
             
             const trimmedName = newName.trim();
             if (!trimmedName) {
@@ -323,7 +417,6 @@
                 return;
             }
 
-            // 파이어베이스에서 해당 id의 name 필드만 업데이트
             database.ref('sigs/' + id).update({ name: trimmedName }).then(() => {
                 alert("시그 이름이 성공적으로 수정되었습니다.");
             }).catch(err => {
@@ -331,40 +424,32 @@
             });
         }
 
-        // 시그 삭제
+        // 시그 삭제 (로그인되어 있으면 프롬프트 패스)
         function deleteSig(id) {
-            const pwd = prompt("시그를 삭제하려면 비밀번호를 입력하세요:");
-            
-            if (pwd === null) return; // 취소 클릭시
-            
-            if (!pwd || pwd.trim() !== MASTER_PASSWORD) {
-                alert("비밀번호가 일치하지 않아 삭제할 수 없습니다.");
+            if (!isLoggedIn) {
+                alert("권한이 없습니다. 상단에서 로그인해 주세요.");
                 return;
             }
 
-            if (confirm("정말 이 시그를 삭제하시겠습니까? 다른 사람들의 화면에서도 삭제됩니다.")) {
-                // Firebase에서 해당 id 데이터 삭제
+            if (confirm("정말 이 시그를 삭제하시겠습니까?")) {
                 database.ref('sigs/' + id).remove().then(() => {
                     alert("삭제되었습니다.");
                 });
             }
         }
 
-        // 클립보드 복사 기능
         function copyToClipboard(text, type) {
             if (!text || text === 'undefined' || text === '없음') {
                 alert(`등록된 ${type} URL이 없습니다.`);
                 return;
             }
-            
             navigator.clipboard.writeText(text).then(() => {
-                alert(`${type} URL이 복사되었습니다!\n${text}`);
+                alert(`${type} URL이 복사되었습니다!`);
             }).catch(err => {
                 alert("복사에 실패했습니다.");
             });
         }
 
-        // 검색 필터 작동 함수
         function filterSigs() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const filtered = sigData.filter(sig => 
