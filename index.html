@@ -144,7 +144,7 @@
         }
 
         .search-box input {
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23a0aec0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>') no-repeat 15px center;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23a0aec0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" x1="21" x2="16.65" y2="16.65"></line></svg>') no-repeat 15px center;
             background-color: var(--card-bg);
             padding-left: 45px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
@@ -320,7 +320,7 @@
             }
         }
 
-        // 데이터베이스 실시간 연동
+        // 데이터베이스 실시간 연동 (비타밍 전용 경로: ming_sigs)
         database.ref('ming_sigs').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -367,7 +367,7 @@
             });
         }
 
-        // 새로운 시그 추가 (상단 로그인 유무 검증)
+        // 새로운 시그 추가 (ming_sigs 경로로 수정 완료)
         function addSig() {
             if (!isLoggedIn) {
                 alert("매니저 로그인이 필요합니다.");
@@ -390,7 +390,7 @@
                 audioUrl: audioInput
             };
 
-            database.ref('sigs/' + newSig.id).set(newSig).then(() => {
+            database.ref('ming_sigs/' + newSig.id).set(newSig).then(() => {
                 document.getElementById('sigName').value = "";
                 document.getElementById('imgUrl').value = "";
                 document.getElementById('audioUrl').value = "";
@@ -401,7 +401,7 @@
             });
         }
 
-        // 이름 수정 (로그인되어 있으면 프롬프트 패스)
+        // 이름 수정 (ming_sigs 경로로 수정 완료)
         function updateSigName(id, currentName) {
             if (!isLoggedIn) {
                 alert("권한이 없습니다. 상단에서 로그인해 주세요.");
@@ -417,14 +417,14 @@
                 return;
             }
 
-            database.ref('sigs/' + id).update({ name: trimmedName }).then(() => {
+            database.ref('ming_sigs/' + id).update({ name: trimmedName }).then(() => {
                 alert("시그 이름이 성공적으로 수정되었습니다.");
             }).catch(err => {
                 alert("수정 실패: " + err.message);
             });
         }
 
-        // 시그 삭제 (로그인되어 있으면 프롬프트 패스)
+        // 시그 삭제 (ming_sigs 경로로 수정 완료)
         function deleteSig(id) {
             if (!isLoggedIn) {
                 alert("권한이 없습니다. 상단에서 로그인해 주세요.");
@@ -432,7 +432,7 @@
             }
 
             if (confirm("정말 이 시그를 삭제하시겠습니까?")) {
-                database.ref('sigs/' + id).remove().then(() => {
+                database.ref('ming_sigs/' + id).remove().then(() => {
                     alert("삭제되었습니다.");
                 });
             }
