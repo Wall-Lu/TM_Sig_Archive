@@ -321,7 +321,7 @@
         }
 
         // 데이터베이스 실시간 연동
-        database.ref('sigs').on('value', (snapshot) => {
+        database.ref('ming_sigs').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 sigData = Object.values(data);
