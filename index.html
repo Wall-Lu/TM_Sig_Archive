@@ -323,4 +323,227 @@
         window.onload = function() {
             const savedPwd = localStorage.getItem('manager_session');
             if (savedPwd === MASTER_PASSWORD) {
-                set
+                setLoginState(true);
+            }
+        };
+
+        function checkLogin() {
+            const pwdInput = document.getElementById('loginPwd').value.trim();
+            if (pwdInput === MASTER_PASSWORD) {
+                localStorage.setItem('manager_session', pwdInput);
+                setLoginState(true);
+                document.getElementById('loginPwd').value = "";
+                showToast("매니저 인증에 성공했습니다!");
+            } else {
+                showToast("비밀번호가 올바르지 않습니다.");
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('manager_session');
+            setLoginState(false);
+            showToast("로그아웃 되었습니다.");
+        }
+
+        function setLoginState(isTrue) {
+            isLoggedIn = isTrue;
+            const container = document.getElementById('mainContainer');
+            const statusText = document.getElementById('loginStatus');
+            const formArea = document.getElementById('loginFormArea');
+            const adminForm = document.getElementById('adminForm');
+
+            if (isTrue) {
+                container.classList.add('admin-mode');
+                adminForm.classList.add('active');
+                statusText.innerText = "🔒 매니저 모드 활성화 중";
+                formArea.innerHTML = `<button class="btn-logout" onclick="handleLogout()">로그아웃</button>`;
+                resetForm();
+            } else {
+                container.classList.remove('admin-mode');
+                adminForm.classList.remove('active');
+                statusText.innerText = "일반 모드 (조회 및 복사만 가능)";
+                formArea.innerHTML = `
+                    <input type="password" id="loginPwd" placeholder="매니저 비밀번호">
+                    <button class="btn-login" onclick="checkLogin()">로그인</button>
+                `;
+                resetForm();
+            }
+        }
+
+        database.ref('ming_sigs').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                sigData = Object.values(data);
+            } else {
+                sigData = [{ 
+                    id: 1, 
+                    name: "츠캄 엔딩곡 Brasma Remix", 
+                    imgUrl: "https://www.image2url.com/r2/default/images/1780937978100-38b1a19f-58bc-4bfc-b58d-977d7ce941c7.png", 
+                    audioUrl: "https://www.image2url.com/r2/default/audio/1780937846881-ca4a6c0b-64e1-45a4-beec-685956aac677.mp3" 
+                }];
+                database.ref('ming_sigs/' + sigData[0].id).set(sigData[0]);
+            }
+            filterSigs();
+        });
+
+        function renderSigs(filteredList) {
+            const listContainer = document.getElementById('sigList');
+            listContainer.innerHTML = "";
+
+            if (!filteredList || filteredList.length === 0) {
+                listContainer.innerHTML = `<div class="empty-state">검색된 시그가 없거나 아직 등록되지 않았습니다.</div>`;
+                return;
+            }
+
+            [...filteredList].reverse().forEach(sig => {
+                const item = document.createElement('div');
+                item.className = 'sig-item';
+                item.innerHTML = `
+                    <div class="sig-info">
+                        <h3>${sig.name}</h3>
+                        <p>IMG: ${sig.imgUrl || '없음'}</p>
+                        <p>MP3: ${sig.audioUrl || '없음'}</p>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">이미지 URL</button>
+                        <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">음원 URL</button>
+                        <button class="btn-edit admin-btn" onclick="startEditSig(${sig.id})">수정</button>
+                        <button class="btn-delete admin-btn" onclick="deleteSig(${sig.id})">삭제</button>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        // 등록 및 수정 통합 저장 함수
+        function saveSig() {
+            if (!isLoggedIn) {
+                showToast("매니저 로그인이 필요합니다.");
+                return;
+            }
+
+            const nameInput = document.getElementById('sigName').value.trim();
+            const imgInput = document.getElementById('imgUrl').value.trim();
+            const audioInput = document.getElementById('audioUrl').value.trim();
+
+            if (!nameInput) {
+                showToast("시그 이름을 입력해주세요!");
+                return;
+            }
+
+            if (editingSigId) {
+                // [수정 모드] 기존 데이터 업데이트
+                database.ref('ming_sigs/' + editingSigId).update({
+                    name: nameInput,
+                    imgUrl: imgInput,
+                    audioUrl: audioInput
+                }).then(() => {
+                    resetForm();
+                    showToast("시그 정보가 성공적으로 수정되었습니다.");
+                }).catch(err => {
+                    showToast("수정 실패: " + err.message);
+                });
+            } else {
+                // [등록 모드] 새 데이터 추가
+                const newSig = {
+                    id: Date.now(),
+                    name: nameInput,
+                    imgUrl: imgInput,
+                    audioUrl: audioInput
+                };
+
+                database.ref('ming_sigs/' + newSig.id).set(newSig).then(() => {
+                    resetForm();
+                    showToast("새로운 시그가 공유 저장되었습니다!");
+                }).catch(err => {
+                    showToast("저장 실패: " + err.message);
+                });
+            }
+        }
+
+        // 수정 모드 진입 함수 (상단 폼으로 데이터 매핑 및 스크롤)
+        function startEditSig(id) {
+            if (!isLoggedIn) {
+                showToast("권한이 없습니다. 상단에서 로그인해 주세요.");
+                return;
+            }
+
+            const sig = sigData.find(item => item.id === id);
+            if (!sig) {
+                showToast("해당 시그 데이터를 찾을 수 없습니다.");
+                return;
+            }
+
+            editingSigId = id;
+            
+            // 상단 폼 입력란에 값 세팅
+            document.getElementById('sigName').value = sig.name || '';
+            document.getElementById('imgUrl').value = sig.imgUrl || '';
+            document.getElementById('audioUrl').value = sig.audioUrl || '';
+
+            // 폼 타이틀 및 버튼 변경
+            document.getElementById('formTitle').innerText = "🔒 시그 정보 수정";
+            document.getElementById('formActionButtons').innerHTML = `
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-save" onclick="saveSig()" style="flex: 7;">수정완료</button>
+                    <button class="btn-cancel" onclick="resetForm()" style="flex: 3;">취소</button>
+                </div>
+            `;
+
+            // 관리자 폼 섹션으로 부드럽게 스크롤 이동
+            document.getElementById('adminForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // 폼 초기화 함수 (수정 취소 또는 저장 완료 시 호출)
+        function resetForm() {
+            editingSigId = null;
+            document.getElementById('sigName').value = "";
+            document.getElementById('imgUrl').value = "";
+            document.getElementById('audioUrl').value = "";
+            document.getElementById('searchInput').value = "";
+
+            document.getElementById('formTitle').innerText = "새로운 시그 등록";
+            document.getElementById('formActionButtons').innerHTML = `
+                <button class="btn-save" onclick="saveSig()">저장하기</button>
+            `;
+        }
+
+        function deleteSig(id) {
+            if (!isLoggedIn) {
+                showToast("권한이 없습니다. 상단에서 로그인해 주세요.");
+                return;
+            }
+
+            if (confirm("정말 이 시그를 삭제하시겠습니까?")) {
+                // 만약 현재 수정 중인 데이터를 삭제하려 하면 폼을 초기화
+                if (editingSigId === id) {
+                    resetForm();
+                }
+                database.ref('ming_sigs/' + id).remove().then(() => {
+                    showToast("삭제되었습니다.");
+                });
+            }
+        }
+
+        function copyToClipboard(text, type) {
+            if (!text || text === 'undefined' || text === '없음') {
+                showToast(`등록된 ${type} URL이 없습니다.`);
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`${type} URL이 복사되었습니다!`);
+            }).catch(err => {
+                showToast("복사에 실패했습니다.");
+            });
+        }
+
+        function filterSigs() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = sigData.filter(sig => 
+                sig.name.toLowerCase().includes(query)
+            );
+            renderSigs(filtered);
+        }
+    </script>
+</body>
+</html>
