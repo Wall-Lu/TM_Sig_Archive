@@ -76,7 +76,7 @@
         .btn-logout { background-color: var(--danger); color: white; padding: 8px 15px; }
         .btn-logout:hover { background-color: var(--danger-hover); }
 
-        /* 입력 폼 섹션 */
+        /* 입력 폼 섹션 (기본적으로 숨김, 로그인 시 표시) */
         .form-section {
             background: var(--card-bg);
             padding: 25px;
@@ -299,7 +299,6 @@
         let isLoggedIn = false;
         let toastTimeout; 
 
-        // 토스트 알림 함수 (4초)
         function showToast(message) {
             const toast = document.getElementById("toast");
             toast.innerText = message;
@@ -376,7 +375,7 @@
             filterSigs();
         });
 
-        // 리스트 출력 (고유 DOM ID 부여 및 통합 수정 링크 연동)
+        // 리스트 렌더링 (원래 구조 유지, 인라인 수정을 위해 개별 ID 부여)
         function renderSigs(filteredList) {
             const listContainer = document.getElementById('sigList');
             listContainer.innerHTML = "";
@@ -389,7 +388,7 @@
             [...filteredList].reverse().forEach(sig => {
                 const item = document.createElement('div');
                 item.className = 'sig-item';
-                item.id = `sig-${sig.id}`; // 수정을 위해 고유 DOM ID 부여
+                item.id = `sig-card-${sig.id}`; // 카드 컨테이너 고유 ID 설정
                 item.innerHTML = `
                     <div class="sig-info">
                         <h3>${sig.name}</h3>
@@ -399,7 +398,7 @@
                     <div class="action-buttons">
                         <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">이미지 URL</button>
                         <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">음원 URL</button>
-                        <button class="btn-edit admin-btn" onclick="editSig(${sig.id})">수정</button>
+                        <button class="btn-edit admin-btn" onclick="updateSigName(${sig.id}, '${sig.name.replace(/'/g, "\\'")}')">수정</button>
                         <button class="btn-delete admin-btn" onclick="deleteSig(${sig.id})">삭제</button>
                     </div>
                 `;
@@ -425,8 +424,8 @@
             const newSig = {
                 id: Date.now(),
                 name: nameInput,
-                imgUrl: imgInput || '없음',
-                audioUrl: audioInput || '없음'
+                imgUrl: imgInput,
+                audioUrl: audioInput
             };
 
             database.ref('ming_sigs/' + newSig.id).set(newSig).then(() => {
@@ -440,8 +439,8 @@
             });
         }
 
-        // [인라인 통합 수정 모드] 리스트 컴포넌트 자체를 폼 필드로 전환
-        function editSig(id) {
+        // [주하랑 스타일 인라인 통합 수정] 기존 함수명 및 흐름 그대로 세 가지 입력을 동시에 처리
+        function updateSigName(id, currentName) {
             if (!isLoggedIn) {
                 showToast("권한이 없습니다. 상단에서 로그인해 주세요.");
                 return;
@@ -450,31 +449,27 @@
             const sig = sigData.find(item => item.id === id);
             if (!sig) return;
 
-            const item = document.getElementById(`sig-${id}`);
-            if (!item) return;
+            const card = document.getElementById(`sig-card-${id}`);
+            if (!card) return;
 
-            const currentName = sig.name || '';
             const currentImg = (sig.imgUrl === '없음') ? '' : (sig.imgUrl || '');
             const currentAudio = (sig.audioUrl === '없음') ? '' : (sig.audioUrl || '');
 
-            // 수정용 레이아웃 정렬 변경
-            item.style.flexDirection = 'column';
-            item.style.alignItems = 'stretch';
-            item.style.gap = '15px';
+            // 카드를 한 번에 수정할 수 있는 입력 폼 레이아웃으로 변경
+            card.style.flexDirection = 'column';
+            card.style.alignItems = 'stretch';
+            card.style.gap = '15px';
 
-            item.innerHTML = `
+            card.innerHTML = `
                 <div class="sig-info" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
                     <div>
-                        <label style="font-size: 0.85rem; color: var(--primary); font-weight: 600; display: block; margin-bottom: 5px;">시그 이름 수정</label>
-                        <input type="text" id="edit-name-${id}" value="${currentName.replace(/"/g, '&quot;')}">
+                        <input type="text" id="edit-name-${id}" value="${sig.name.replace(/"/g, '&quot;')}" placeholder="시그 이름 입력" style="padding: 10px;">
                     </div>
                     <div>
-                        <label style="font-size: 0.85rem; color: var(--primary); font-weight: 600; display: block; margin-bottom: 5px;">이미지 URL 수정</label>
-                        <input type="text" id="edit-img-${id}" value="${currentImg.replace(/"/g, '&quot;')}" placeholder="없음">
+                        <input type="text" id="edit-img-${id}" value="${currentImg.replace(/"/g, '&quot;')}" placeholder="이미지 URL 입력" style="padding: 10px; font-size: 0.85rem;">
                     </div>
                     <div>
-                        <label style="font-size: 0.85rem; color: var(--primary); font-weight: 600; display: block; margin-bottom: 5px;">음원 URL 수정</label>
-                        <input type="text" id="edit-audio-${id}" value="${currentAudio.replace(/"/g, '&quot;')}" placeholder="없음">
+                        <input type="text" id="edit-audio-${id}" value="${currentAudio.replace(/"/g, '&quot;')}" placeholder="음원 URL 입력" style="padding: 10px; font-size: 0.85rem;">
                     </div>
                 </div>
                 <div class="action-buttons" style="justify-content: flex-end; margin-top: 5px;">
@@ -484,7 +479,7 @@
             `;
         }
 
-        // [데이터베이스 갱신] 이름, 이미지, 음원 일괄 업데이트 함수
+        // 수정한 내용을 파이어베이스에 일괄 반영하는 함수
         function saveSigEdit(id) {
             if (!isLoggedIn) {
                 showToast("권한이 없습니다. 상단에서 로그인해 주세요.");
