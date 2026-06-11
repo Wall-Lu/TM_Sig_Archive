@@ -135,8 +135,14 @@
             color: white;
             margin-top: 5px;
         }
-
         .btn-save:hover { background-color: var(--primary-hover); }
+        
+        .btn-cancel {
+            background-color: var(--text-sub);
+            color: white;
+            margin-top: 5px;
+        }
+        .btn-cancel:hover { background-color: #4a5568; }
 
         /* 검색 및 리스트 섹션 */
         .search-box {
@@ -234,58 +240,6 @@
             bottom: 50px;
         }
 
-        /* 수정 모달 스타일 */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 10000;
-            justify-content: center;
-            align-items: center;
-            padding: 15px;
-            box-sizing: border-box;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-content h2 {
-            font-size: 1.2rem;
-            margin-top: 0;
-            margin-bottom: 15px;
-            border-bottom: 2px solid var(--bg-color);
-            padding-bottom: 10px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .btn-cancel {
-            background-color: var(--text-sub);
-            color: white;
-            width: 100%;
-        }
-        .btn-cancel:hover {
-            background-color: #4a5568;
-        }
-
         @media (max-width: 600px) {
             .sig-item { flex-direction: column; align-items: flex-start; gap: 15px; }
             .action-buttons { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
@@ -311,7 +265,7 @@
         </div>
 
         <div class="form-section" id="adminForm">
-            <h2>새로운 시그 등록</h2>
+            <h2 id="formTitle">새로운 시그 등록</h2>
             <div class="input-group">
                 <input type="text" id="sigName" placeholder="시그 이름을 입력하세요">
             </div>
@@ -319,7 +273,9 @@
                 <input type="text" id="imgUrl" placeholder="이미지 URL 입력">
                 <input type="text" id="audioUrl" placeholder="음원 URL 입력">
             </div>
-            <button class="btn-save" onclick="addSig()">저장하기</button>
+            <div id="formActionButtons">
+                <button class="btn-save" onclick="saveSig()">저장하기</button>
+            </div>
         </div>
 
         <div class="search-box">
@@ -327,26 +283,6 @@
         </div>
 
         <div id="sigList"></div>
-    </div>
-
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <h2>시그 정보 수정</h2>
-            <input type="hidden" id="editSigId">
-            <div class="input-group" style="margin-bottom: 10px;">
-                <input type="text" id="editSigName" placeholder="시그 이름을 입력하세요">
-            </div>
-            <div class="input-group" style="margin-bottom: 10px;">
-                <input type="text" id="editImgUrl" placeholder="이미지 URL 입력">
-            </div>
-            <div class="input-group" style="margin-bottom: 15px;">
-                <input type="text" id="editAudioUrl" placeholder="음원 URL 입력">
-            </div>
-            <div class="modal-buttons">
-                <button class="btn-save" onclick="saveEditSig()" style="margin-top: 0;">수정완료</button>
-                <button class="btn-cancel" onclick="closeEditModal()">취소</button>
-            </div>
-        </div>
     </div>
 
     <div id="toast">알림 메시지</div>
@@ -369,9 +305,9 @@
 
         let sigData = [];
         let isLoggedIn = false;
+        let editingSigId = null; // 현재 수정 중인 시그의 ID 저장 (null이면 등록 모드)
         let toastTimeout; 
 
-        // 토스트 알림 함수 (4초)
         function showToast(message) {
             const toast = document.getElementById("toast");
             toast.innerText = message;
@@ -387,213 +323,4 @@
         window.onload = function() {
             const savedPwd = localStorage.getItem('manager_session');
             if (savedPwd === MASTER_PASSWORD) {
-                setLoginState(true);
-            }
-        };
-
-        function checkLogin() {
-            const pwdInput = document.getElementById('loginPwd').value.trim();
-            if (pwdInput === MASTER_PASSWORD) {
-                localStorage.setItem('manager_session', pwdInput);
-                setLoginState(true);
-                document.getElementById('loginPwd').value = "";
-                showToast("매니저 인증에 성공했습니다!");
-            } else {
-                showToast("비밀번호가 올바르지 않습니다.");
-            }
-        }
-
-        function handleLogout() {
-            localStorage.removeItem('manager_session');
-            setLoginState(false);
-            showToast("로그아웃 되었습니다.");
-        }
-
-        function setLoginState(isTrue) {
-            isLoggedIn = isTrue;
-            const container = document.getElementById('mainContainer');
-            const statusText = document.getElementById('loginStatus');
-            const formArea = document.getElementById('loginFormArea');
-            const adminForm = document.getElementById('adminForm');
-
-            if (isTrue) {
-                container.classList.add('admin-mode');
-                adminForm.classList.add('active');
-                statusText.innerText = "🔒 매니저 모드 활성화 중";
-                formArea.innerHTML = `<button class="btn-logout" onclick="handleLogout()">로그아웃</button>`;
-            } else {
-                container.classList.remove('admin-mode');
-                adminForm.classList.remove('active');
-                statusText.innerText = "일반 모드 (조회 및 복사만 가능)";
-                formArea.innerHTML = `
-                    <input type="password" id="loginPwd" placeholder="매니저 비밀번호">
-                    <button class="btn-login" onclick="checkLogin()">로그인</button>
-                `;
-            }
-        }
-
-        database.ref('ming_sigs').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                sigData = Object.values(data);
-            } else {
-                sigData = [{ 
-                    id: 1, 
-                    name: "츠캄 엔딩곡 Brasma Remix", 
-                    imgUrl: "https://www.image2url.com/r2/default/images/1780937978100-38b1a19f-58bc-4bfc-b58d-977d7ce941c7.png", 
-                    audioUrl: "https://www.image2url.com/r2/default/audio/1780937846881-ca4a6c0b-64e1-45a4-beec-685956aac677.mp3" 
-                }];
-                database.ref('ming_sigs/' + sigData[0].id).set(sigData[0]);
-            }
-            filterSigs();
-        });
-
-        function renderSigs(filteredList) {
-            const listContainer = document.getElementById('sigList');
-            listContainer.innerHTML = "";
-
-            if (!filteredList || filteredList.length === 0) {
-                listContainer.innerHTML = `<div class="empty-state">검색된 시그가 없거나 아직 등록되지 않았습니다.</div>`;
-                return;
-            }
-
-            [...filteredList].reverse().forEach(sig => {
-                const item = document.createElement('div');
-                item.className = 'sig-item';
-                item.innerHTML = `
-                    <div class="sig-info">
-                        <h3>${sig.name}</h3>
-                        <p>IMG: ${sig.imgUrl || '없음'}</p>
-                        <p>MP3: ${sig.audioUrl || '없음'}</p>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">이미지 URL</button>
-                        <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">음원 URL</button>
-                        <button class="btn-edit admin-btn" onclick="openEditModal(${sig.id})">수정</button>
-                        <button class="btn-delete admin-btn" onclick="deleteSig(${sig.id})">삭제</button>
-                    </div>
-                `;
-                listContainer.appendChild(item);
-            });
-        }
-
-        function addSig() {
-            if (!isLoggedIn) {
-                showToast("매니저 로그인이 필요합니다.");
-                return;
-            }
-
-            const nameInput = document.getElementById('sigName').value.trim();
-            const imgInput = document.getElementById('imgUrl').value.trim();
-            const audioInput = document.getElementById('audioUrl').value.trim();
-
-            if (!nameInput) {
-                showToast("시그 이름을 입력해주세요!");
-                return;
-            }
-
-            const newSig = {
-                id: Date.now(),
-                name: nameInput,
-                imgUrl: imgInput,
-                audioUrl: audioInput
-            };
-
-            database.ref('ming_sigs/' + newSig.id).set(newSig).then(() => {
-                document.getElementById('sigName').value = "";
-                document.getElementById('imgUrl').value = "";
-                document.getElementById('audioUrl').value = "";
-                document.getElementById('searchInput').value = "";
-                showToast("새로운 시그가 공유 저장되었습니다!");
-            }).catch(err => {
-                showToast("저장 실패: " + err.message);
-            });
-        }
-
-        // 수정 모달창 열기 함수
-        function openEditModal(id) {
-            if (!isLoggedIn) {
-                showToast("권한이 없습니다. 상단에서 로그인해 주세요.");
-                return;
-            }
-
-            const sig = sigData.find(item => item.id === id);
-            if (!sig) {
-                showToast("해당 시그 데이터를 찾을 수 없습니다.");
-                return;
-            }
-
-            // 모달 내 입력창에 기존 데이터 채워넣기
-            document.getElementById('editSigId').value = sig.id;
-            document.getElementById('editSigName').value = sig.name || '';
-            document.getElementById('editImgUrl').value = sig.imgUrl || '';
-            document.getElementById('editAudioUrl').value = sig.audioUrl || '';
-
-            // 모달 활성화
-            document.getElementById('editModal').classList.add('active');
-        }
-
-        // 수정 모달창 닫기 함수
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('active');
-        }
-
-        // 수정 데이터 일괄 저장 함수
-        function saveEditSig() {
-            const id = document.getElementById('editSigId').value;
-            const name = document.getElementById('editSigName').value.trim();
-            const imgUrl = document.getElementById('editImgUrl').value.trim();
-            const audioUrl = document.getElementById('editAudioUrl').value.trim();
-
-            if (!name) {
-                showToast("시그 이름은 공백으로 설정할 수 없습니다.");
-                return;
-            }
-
-            database.ref('ming_sigs/' + id).update({
-                name: name,
-                imgUrl: imgUrl,
-                audioUrl: audioUrl
-            }).then(() => {
-                closeEditModal();
-                showToast("시그 정보가 성공적으로 수정되었습니다.");
-            }).catch(err => {
-                showToast("수정 실패: " + err.message);
-            });
-        }
-
-        function deleteSig(id) {
-            if (!isLoggedIn) {
-                showToast("권한이 없습니다. 상단에서 로그인해 주세요.");
-                return;
-            }
-
-            if (confirm("정말 이 시그를 삭제하시겠습니까?")) {
-                database.ref('ming_sigs/' + id).remove().then(() => {
-                    showToast("삭제되었습니다.");
-                });
-            }
-        }
-
-        function copyToClipboard(text, type) {
-            if (!text || text === 'undefined' || text === '없음') {
-                showToast(`등록된 ${type} URL이 없습니다.`);
-                return;
-            }
-            navigator.clipboard.writeText(text).then(() => {
-                showToast(`${type} URL이 복사되었습니다!`);
-            }).catch(err => {
-                showToast("복사에 실패했습니다.");
-            });
-        }
-
-        function filterSigs() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = sigData.filter(sig => 
-                sig.name.toLowerCase().includes(query)
-            );
-            renderSigs(filtered);
-        }
-    </script>
-</body>
-</html>
+                set
