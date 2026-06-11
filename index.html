@@ -234,6 +234,58 @@
             bottom: 50px;
         }
 
+        /* 수정 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-content h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 10px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-cancel {
+            background-color: var(--text-sub);
+            color: white;
+            width: 100%;
+        }
+        .btn-cancel:hover {
+            background-color: #4a5568;
+        }
+
         @media (max-width: 600px) {
             .sig-item { flex-direction: column; align-items: flex-start; gap: 15px; }
             .action-buttons { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
@@ -275,6 +327,26 @@
         </div>
 
         <div id="sigList"></div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h2>시그 정보 수정</h2>
+            <input type="hidden" id="editSigId">
+            <div class="input-group" style="margin-bottom: 10px;">
+                <input type="text" id="editSigName" placeholder="시그 이름을 입력하세요">
+            </div>
+            <div class="input-group" style="margin-bottom: 10px;">
+                <input type="text" id="editImgUrl" placeholder="이미지 URL 입력">
+            </div>
+            <div class="input-group" style="margin-bottom: 15px;">
+                <input type="text" id="editAudioUrl" placeholder="음원 URL 입력">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-save" onclick="saveEditSig()" style="margin-top: 0;">수정완료</button>
+                <button class="btn-cancel" onclick="closeEditModal()">취소</button>
+            </div>
+        </div>
     </div>
 
     <div id="toast">알림 메시지</div>
@@ -397,7 +469,7 @@
                     <div class="action-buttons">
                         <button class="btn-copy-img" onclick="copyToClipboard('${sig.imgUrl}', '이미지')">이미지 URL</button>
                         <button class="btn-copy-audio" onclick="copyToClipboard('${sig.audioUrl}', '음원')">음원 URL</button>
-                        <button class="btn-edit admin-btn" onclick="updateSigName(${sig.id}, '${sig.name.replace(/'/g, "\\'")}')">수정</button>
+                        <button class="btn-edit admin-btn" onclick="openEditModal(${sig.id})">수정</button>
                         <button class="btn-delete admin-btn" onclick="deleteSig(${sig.id})">삭제</button>
                     </div>
                 `;
@@ -438,23 +510,53 @@
             });
         }
 
-        function updateSigName(id, currentName) {
+        // 수정 모달창 열기 함수
+        function openEditModal(id) {
             if (!isLoggedIn) {
                 showToast("권한이 없습니다. 상단에서 로그인해 주세요.");
                 return;
             }
 
-            const newName = prompt("변경할 새로운 시그 이름을 입력해주세요:", currentName);
-            if (newName === null) return;
-            
-            const trimmedName = newName.trim();
-            if (!trimmedName) {
+            const sig = sigData.find(item => item.id === id);
+            if (!sig) {
+                showToast("해당 시그 데이터를 찾을 수 없습니다.");
+                return;
+            }
+
+            // 모달 내 입력창에 기존 데이터 채워넣기
+            document.getElementById('editSigId').value = sig.id;
+            document.getElementById('editSigName').value = sig.name || '';
+            document.getElementById('editImgUrl').value = sig.imgUrl || '';
+            document.getElementById('editAudioUrl').value = sig.audioUrl || '';
+
+            // 모달 활성화
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        // 수정 모달창 닫기 함수
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        // 수정 데이터 일괄 저장 함수
+        function saveEditSig() {
+            const id = document.getElementById('editSigId').value;
+            const name = document.getElementById('editSigName').value.trim();
+            const imgUrl = document.getElementById('editImgUrl').value.trim();
+            const audioUrl = document.getElementById('editAudioUrl').value.trim();
+
+            if (!name) {
                 showToast("시그 이름은 공백으로 설정할 수 없습니다.");
                 return;
             }
 
-            database.ref('ming_sigs/' + id).update({ name: trimmedName }).then(() => {
-                showToast("시그 이름이 성공적으로 수정되었습니다.");
+            database.ref('ming_sigs/' + id).update({
+                name: name,
+                imgUrl: imgUrl,
+                audioUrl: audioUrl
+            }).then(() => {
+                closeEditModal();
+                showToast("시그 정보가 성공적으로 수정되었습니다.");
             }).catch(err => {
                 showToast("수정 실패: " + err.message);
             });
